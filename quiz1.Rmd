@@ -1,0 +1,81 @@
+---
+title: "Week 1 Capstone test"
+author: "Suharkov MP"
+date: "09 12 2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r libraries, warning=F, message=F}
+library(dplyr) #for question 3
+library(data.table) #for question 5
+```
+
+## Question 1
+The *en_US.blogs.txt* file is how many megabytes?
+```{r q1, warning=F, message=F}
+file.info('./final/en_US/en_US.blogs.txt')[1]
+```
+
+It is about 200 MBs.
+
+## Question 2
+The *en_US.twitter.txt* has how many lines of text?
+```{r q2, warning=F, message=F}
+twitter <- as.data.frame(readLines('./final/en_US/en_US.twitter.txt'))
+names(twitter) <- c('Text')
+twitter <- twitter %>% mutate(length = nchar(twitter$Text))
+dim(twitter)
+```
+
+2.3 million lines.
+
+## Question 3
+What is the length of the longest line seen in any of the three en_US data sets?
+```{r q3, warning=F, message=F}
+blogs <- as.data.frame(readLines('./final/en_US/en_US.blogs.txt'))
+names(blogs) <- c('Text')
+blogs <- blogs %>% mutate(length = nchar(blogs$Text))
+news <- as.data.frame(readLines('./final/en_US/en_US.news.txt'))
+names(news) <- c('Text')
+news <- news %>% mutate(length = nchar(news$Text))
+```
+
+```{r q3-1, warning=F, message=F}
+max(blogs$length)
+```
+
+```{r q3-2, warning=F, message=F}
+max(news$length)
+```
+
+Blogs dataset has the longest line of 40k symbols.
+
+## Question 4
+In the *en_US twitter* data set, if you divide the number of lines where the word "love" (all lowercase) occurs by the number of lines the word "hate" (all lowercase) occurs, about what do you get?
+```{r q4, warning=F, message=F}
+blogs$Text <- tolower(blogs$Text)
+sum(grepl('love', blogs$Text)) / sum(grepl('hate', blogs$Text))
+```
+
+About 4 (and it was 4.430258 before **tolower**) 
+
+## Question 5
+The one tweet in the en_US twitter data set that matches the word "biostats" says what?
+```{r q5, warning=F, message=F}
+twitter[twitter$Text %like% 'biostats', ]
+```
+
+Looks like somebody have an exam and did not study hard.
+
+## Question 6
+How many tweets have the exact characters "A computer once beat me at chess, but it was no match for me at kickboxing". (I.e. the line matches those characters exactly.)
+```{r q6, warning=F, message=F}
+twitter[twitter$Text %like% 
+          'A computer once beat me at chess, but it was no match for me at kickboxing', ]
+```
+
+3 tweets.
