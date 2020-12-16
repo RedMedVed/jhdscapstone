@@ -13,7 +13,14 @@ knitr::opts_chunk$set(echo = TRUE)
 library(dplyr) #dataframe formatting
 library(stringr) #string formatting
 library(readr) #txt to string
-library(tm) #data analisys
+library(tm) #text analisys
+library(RWeka) #searching for n-grams
+library(ggplot2)
+
+#and for cloud
+library(wordcloud)
+library(wordcloud2)
+library(RColorBrewer)
 ```
 
 # Overview
@@ -23,84 +30,209 @@ In my work I will use the en_US locale of the dataset. To decide what part of th
 blogs <- as.data.frame(readLines('./final/en_US/en_US.blogs.txt'))
 names(blogs) <- c('Text')
 blogs <- blogs %>% mutate(length = nchar(blogs$Text))
-quantile(blogs$length, c(.01, .05, .1, .2, .3, .4, .5, .6, .7, .8, .9, .95, .99))
+quantile(blogs$length, c(.01, .05, .1, .2, .3, .4, .5, .6, .7, .8, .9, .95, .99, .9999))
 ```
 
 ```{r overview2, warning=F, message=F}
 news <- as.data.frame(readLines('./final/en_US/en_US.news.txt'))
 names(news) <- c('Text')
 news <- news %>% mutate(length = nchar(news$Text))
-quantile(news$length, c(.01, .05, .1, .2, .3, .4, .5, .6, .7, .8, .9, .95, .99))
+quantile(news$length, c(.01, .05, .1, .2, .3, .4, .5, .6, .7, .8, .9, .95, .99, .9999))
 ```
 
 ```{r overview3, warning=F, message=F}
 twitter <- as.data.frame(readLines('./final/en_US/en_US.twitter.txt'))
 names(twitter) <- c('Text')
 twitter <- twitter %>% mutate(length = nchar(twitter$Text))
-quantile(twitter$length, c(.01, .05, .1, .2, .3, .4, .5, .6, .7, .8, .9, .95, .99))
+quantile(twitter$length, c(.01, .05, .1, .2, .3, .4, .5, .6, .7, .8, .9, .95, .99, .9999))
 ```
 
 # Task 1 - Getting and cleaning the data
 
-Well, I see that the most informative from all these files is the one containing blogs. Twitter's 99%-percentile is less than others' 30-50%. I will not use twitter for teaching my model at all. How much of blogs and news should be left? Let it be the 99%-percentiles of blogs and news (538 and 363 symbols respectively). It will contain about 10k lines of text:
+Well, I see that the most informative from all these files is the one containing blogs. Twitter's 99%-percentile is less than others' 30-50%. I will not use twitter for teaching my model at all. How much of each source should be left? Let it be the something close to 99.99%-percentiles (3000, 1500 and 142 symbols respectively). It will contain about 1200 lines of text:
 ```{r filtering, warning=F, message=F}
-blogs <- blogs %>% filter(length > 1120)
-news <- news %>% filter(length > 631)
+blogs <- blogs %>% filter(length > 3000)
+news <- news %>% filter(length > 1500)
+#too much of twits make my PC not able to count vectors, so I have to cut it a little
+twitter <- twitter %>% filter(length > 146)
 ```
 
-Next, I will write these three to a new dataframe, then continue working with it.
+Next, I will write these to a new dataframe, then to string in order to continue working with it.
 ```{r write, warning=F, message=F}
-sample <- bind_rows(blogs, news)
+sample <- bind_rows(blogs, news, twitter)
+sample <- paste0(sample$Text)
+#Prevent future errors with non-UTF-8 characters
+sample <- stringr::str_conv(sample, "UTF-8")
 ```
 
-## Tokenization
-Several steps will be taken here.
+## Tokenization 
 
-Finally I've found a **tm** package to do all the backend for me, so the rest of this file will be changed.
+I will use the **tm** package for this part of analysis. It's suitable for text mining, transforming words or strings into *word corpus*, cleaning the data (removing numbers, punctuation, web links, stop words etc.) and each of this steps can be done by one separate function. The package and algorithm were chosen according to this video: (Data Science Tutorial | Text analytics with R)[https://www.youtube.com/watch?v=qjSeedeF4KQ], thanks to the author.
+
+```{r corpus, warning=F, message=F}
+corpus <- Corpus(VectorSource(sample))
+inspect(corpus[1:3])
+```
+There are numbers, punctuation signs, parenthesis and some specific symbols, like **£**. Also short versions of words, but they make it impossible to predict, what form is it. I have **fix’d** for **fixed** and **'d** can also mean **should/would**. I will not even try to guess, just wipe all these forms.
+
+
+```{r clean, warning=F, message=F}
+#Built-in cleaning functions
+corpus <- corpus %>% 
+  tm_map(tolower) %>%
+  tm_map(removeNumbers) %>%
+  tm_map(removePunctuation) %>%
+  tm_map(removeWords, stopwords()) %>%
+  tm_map(stripWhitespace)
+```
+
+
 
 ## Profanity filtering
-
-```{r prof, warning=F, message=F}
-
+I've found a very large list of profanity words which I will use here as a filter - (School of Computer Science at Carnegi Mellon University)[https://www.cs.cmu.edu/~biglou/resources/bad-words.txt]
+```{r profanity, warning=F, message=F}
+#download.file('https://www.cs.cmu.edu/~biglou/resources/bad-words.txt', 'profanity.txt')
+prof <- readLines('profanity.txt')
+corpus <- tm_map(corpus, removeWords, prof)
+#Make matrix
+dtm <- DocumentTermMatrix(corpus)
+```
+Corpus' size did not change, I think there were no profanity from this list. That's nice.
+```{r inspect1, warning=F, message=F}
+inspect(dtm)
 ```
 
-Now I've removed all unnecessary data, only tokenized text left. Questions' time.
+This **'s** doesn't look like the word suitable for corpus. I will make now some more manipulations to purge it. The same to different kinds of parenthesis, dots etc (these *words* were found through several iterations, while working with word cloud).
+```{r purge, warning=F, message=F}
+toSpace <- content_transformer(function(x, pattern) gsub(pattern, ' ', x))
+toNot <- content_transformer(function(x, pattern) gsub(pattern, ' not', x))
+corpus1 <- corpus %>%
+  tm_map(toSpace, "’s") %>%
+  tm_map(toSpace, "“") %>%
+  tm_map(toSpace, "–") %>%
+  tm_map(toSpace, "”") %>%
+  tm_map(toSpace, "’m") %>%
+  tm_map(toSpace, "’re") %>%
+  tm_map(toSpace, "’ve") %>%
+  tm_map(toSpace, "’d") %>%
+  tm_map(toSpace, "’ll") %>%
+  tm_map(toSpace, "…") %>%
+  tm_map(toSpace, "—") %>%
+  tm_map(toNot, "n’t") %>%
+  tm_map(stripWhitespace)
+dtm <- DocumentTermMatrix(corpus1)
+inspect(dtm)
+```
+## Cloud
+
+```{r cloud, warning=F, message=F}
+matrix <- as.matrix(dtm) 
+words <- sort(colSums(matrix), decreasing = TRUE) 
+df <- data.frame(word = names(words), freq = words)
+set.seed(42) # for reproducibility 
+wordcloud(words = df$word, freq = df$freq, 
+          min.freq = 1, 
+          max.words = 300, 
+          random.order = FALSE, 
+          rot.per = 0.35,
+          colors = brewer.pal(8, 'Dark2'))
+```
+
+Now it's questions' time.
 
 # Task 2 - Exploratory Data Analysis
 
 ## Question 1
 Some words are more frequent than others - what are the distributions of word frequencies? 
 ```{r q1, warning=F, message=F}
-
+topwords <- as.data.frame(words[1:20])
+topwords <- topwords %>% mutate(words = rownames(topwords))
+names(topwords) <- c('count', 'word')
+ggplot(topwords, aes(x = reorder(word, -count), y = count)) +
+  geom_bar(stat = 'identity', fill = 'steelblue') + 
+  theme(axis.text.x = element_text(angle = 45, hjust = 1),
+        plot.title = element_text(hjust = 0.5)) +
+  labs(x = 'Words', y = 'Count', title = 'Top 20 words in my corpus')
 ```
 
+And **will** is the winner.
 
 ## Question 2
 What are the frequencies of 2-grams and 3-grams in the dataset? 
 ```{r q2, warning=F, message=F}
-
+#For making n-grams, corpus must be trasformed
+vCorpus <- VCorpus(VectorSource(corpus))
 ```
 
+```{r bigrams, warning=F, message=F}
+#Bigrams
+BigramTokenizer <- function(x) {NGramTokenizer(x, Weka_control(min = 2, max = 2))}
+dtm2 <- TermDocumentMatrix(vCorpus, control = list(tokenize = BigramTokenizer))
+matrix2 <- as.matrix(dtm2) 
+bigrams <- sort(rowSums(matrix2), decreasing = TRUE) 
+df2 <- data.frame(word = names(bigrams), freq = bigrams)
+topbis <- as.data.frame(bigrams[1:20])
+topbis <- topbis %>% mutate(words = rownames(topbis))
+names(topbis) <- c('count', 'bigram')
+ggplot(topbis, aes(x = reorder(bigram, -count), y = count)) +
+  geom_bar(stat = 'identity', fill = 'royalblue') + 
+  theme(axis.text.x = element_text(angle = 45, hjust = 1),
+        plot.title = element_text(hjust = 0.5)) +
+  labs(x = 'Bigrams', y = 'Count', title = 'Top 20 bigrams in my corpus')
+rm(matrix2)
+```
+
+```{r trigrams, warning=F, message=F}
+#Trigrams
+TrigramTokenizer <- function(x) {NGramTokenizer(x, Weka_control(min = 3, max = 3))}
+dtm3 <- TermDocumentMatrix(vCorpus, control = list(tokenize = TrigramTokenizer))
+matrix3 <- as.matrix(dtm3) 
+trigrams <- sort(rowSums(matrix3), decreasing = TRUE) 
+df3 <- data.frame(word = names(trigrams), freq = trigrams)
+toptris <- as.data.frame(trigrams[1:20])
+toptris <- toptris %>% mutate(trigrams = rownames(toptris))
+names(toptris) <- c('count', 'trigram')
+ggplot(toptris, aes(x = reorder(trigram, -count), y = count)) +
+  geom_bar(stat = 'identity', fill = 'dodgerblue') + 
+  theme(axis.text.x = element_text(angle = 45, hjust = 1),
+        plot.title = element_text(hjust = 0.5)) +
+  labs(x = 'Trigrams', y = 'Count', title = 'Top 20 trigrams in my corpus')
+rm(matrix3)
+```
+Twitter really rules with it's emojis, #20 is **💗💗💗**
 
 ## Question 3
 How many unique words do you need in a frequency sorted dictionary to cover 50% of all word instances in the language? 90%? 
-```{r q3, warning=F, message=F}
 
+It can be predicted only according to the used corpus. 
+```{r q3-1, warning=F, message=F}
+length(words)
+```
+
+```{r q3-2, warning=F, message=F}
+sum(words)
+```
+So, I have 14324 unique words and 67068 total.
+
+Changing the column to cumulative sum and estimating the amount of words equal to 50% and 90% will give the answer:
+```{r q3-3, warning=F, message=F}
+words <- cumsum(words)
+print(paste0(sum(words < ceiling(67068 * 0.5)), ' words cover 50%'))
+```
+```{r q3-4, warning=F, message=F}
+print(paste0(sum(words < ceiling(67068 * 0.9)), ' words cover 90%'))
 ```
 
 
 ## Question 4
 How do you evaluate how many of the words come from foreign languages? 
-```{r q4, warning=F, message=F}
 
-```
+### Answer 4
+This could be done by filtering all the symbols except [a-zA-Z]. But it should be done carefully, some foreign words get into this regular expression (for example, not all spanish words have **Ñ** inside).
 
 
 ## Question 5
 Can you think of a way to increase the coverage -- identifying words that may not be in the corpora or using a smaller number of words in the dictionary to cover the same number of phrases?
-```{r q5, warning=F, message=F}
 
-```
-
-# Task 3 - Modeling
-
+### Answer 5
+This task should use stemming before teaching the model and applying grammar rules then predicting.
