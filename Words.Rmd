@@ -17,7 +17,7 @@ library(tm) #text analisys
 library(RWeka) #searching for n-grams
 library(ggplot2)
 
-#and for cloud
+#for cloud
 library(wordcloud)
 library(wordcloud2)
 library(RColorBrewer)
@@ -25,31 +25,55 @@ library(RColorBrewer)
 
 # Overview
 
-In my work I will use the en_US locale of the dataset. To decide what part of this huge pack of data to use, I want to look at the distribution of lengths for each of three files. According to this, I will load while files onto memory and filter data afterwards. Next step is to look at these sets' percentiles to decide, how much data will be used for building model.
-```{r overview1, warning=F, message=F}
+In my work I will use the en_US locale of the dataset. 
+
+```{r data, warning=F, message=F}
 blogs <- as.data.frame(readLines('./final/en_US/en_US.blogs.txt'))
 names(blogs) <- c('Text')
-blogs <- blogs %>% mutate(length = nchar(blogs$Text))
+blogs <- blogs %>% mutate(length = nchar(blogs$Text)) %>%
+  mutate(words = sapply(strsplit(blogs$Text, ' '), length))
+
+news <- as.data.frame(readLines('./final/en_US/en_US.news.txt'))
+names(news) <- c('Text')
+news <- news %>% mutate(length = nchar(news$Text)) %>%
+  mutate(words = sapply(strsplit(news$Text, ' '), length))
+
+twitter <- as.data.frame(readLines('./final/en_US/en_US.twitter.txt'))
+names(twitter) <- c('Text')
+twitter <- twitter %>% mutate(length = nchar(twitter$Text)) %>%
+  mutate(words = sapply(strsplit(twitter$Text, ' '), length))
+
+Names <- c('Word counts', 'Line counts', 'File size, MB')
+Blog <- c(sum(blogs$words),
+          length(readLines('./final/en_US/en_US.blogs.txt')),
+          round(file.size(paste0(getwd(), '/final/en_US/en_US.blogs.txt')) / 1024^2, digits = 2))
+News <- c(sum(news$words),
+          length(readLines('./final/en_US/en_US.news.txt')),
+          round(file.size(paste0(getwd(), '/final/en_US/en_US.news.txt')) / 1024^2, digits = 2))
+Twitter <- c(sum(twitter$words),
+             length(readLines('./final/en_US/en_US.twitter.txt')),
+             round(file.size(paste0(getwd(), '/final/en_US/en_US.twitter.txt')) / 1024^2, digits = 2))
+t1 <- data.frame(Blog, News, Twitter)
+row.names(t1) <- c('Word counts', 'Line counts', 'File size, MB')
+t1
+```
+
+To decide what part of this huge pack of data to use, I want to look at the distribution of lengths for each of three files. According to this, I will load while files onto memory and filter data afterwards. Next step is to look at these sets' percentiles to decide, how much data will be used for building model.
+```{r overview1, warning=F, message=F}
 quantile(blogs$length, c(.01, .05, .1, .2, .3, .4, .5, .6, .7, .8, .9, .95, .99, .9999))
 ```
 
 ```{r overview2, warning=F, message=F}
-news <- as.data.frame(readLines('./final/en_US/en_US.news.txt'))
-names(news) <- c('Text')
-news <- news %>% mutate(length = nchar(news$Text))
 quantile(news$length, c(.01, .05, .1, .2, .3, .4, .5, .6, .7, .8, .9, .95, .99, .9999))
 ```
 
 ```{r overview3, warning=F, message=F}
-twitter <- as.data.frame(readLines('./final/en_US/en_US.twitter.txt'))
-names(twitter) <- c('Text')
-twitter <- twitter %>% mutate(length = nchar(twitter$Text))
 quantile(twitter$length, c(.01, .05, .1, .2, .3, .4, .5, .6, .7, .8, .9, .95, .99, .9999))
 ```
 
 # Task 1 - Getting and cleaning the data
 
-Well, I see that the most informative from all these files is the one containing blogs. Twitter's 99%-percentile is less than others' 30-50%. I will not use twitter for teaching my model at all. How much of each source should be left? Let it be the something close to 99.99%-percentiles (3000, 1500 and 142 symbols respectively). It will contain about 1200 lines of text:
+Well, I see that the most informative from all these files is the one containing blogs. Twitter's 99%-percentile is less than others' 30-50%. I will not use twitter for teaching my model at all. How much of each source should be left? Let it be the something close to 99.99%-percentiles (3000, 1500 and 146 symbols respectively). It will contain about 1200 lines of text:
 ```{r filtering, warning=F, message=F}
 blogs <- blogs %>% filter(length > 3000)
 news <- news %>% filter(length > 1500)

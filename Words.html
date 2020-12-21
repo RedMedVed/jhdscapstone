@@ -376,33 +376,57 @@ library(tm) #text analisys
 library(RWeka) #searching for n-grams
 library(ggplot2)
 
-#and for cloud
+#for cloud
 library(wordcloud)
 library(wordcloud2)
 library(RColorBrewer)</code></pre>
 <div id="overview" class="section level1">
 <h1>Overview</h1>
-<p>In my work I will use the en_US locale of the dataset. To decide what part of this huge pack of data to use, I want to look at the distribution of lengths for each of three files. According to this, I will load while files onto memory and filter data afterwards. Next step is to look at these sets’ percentiles to decide, how much data will be used for building model.</p>
+<p>In my work I will use the en_US locale of the dataset.</p>
 <pre class="r"><code>blogs &lt;- as.data.frame(readLines(&#39;./final/en_US/en_US.blogs.txt&#39;))
 names(blogs) &lt;- c(&#39;Text&#39;)
-blogs &lt;- blogs %&gt;% mutate(length = nchar(blogs$Text))
-quantile(blogs$length, c(.01, .05, .1, .2, .3, .4, .5, .6, .7, .8, .9, .95, .99, .9999))</code></pre>
+blogs &lt;- blogs %&gt;% mutate(length = nchar(blogs$Text)) %&gt;%
+  mutate(words = sapply(strsplit(blogs$Text, &#39; &#39;), length))
+
+news &lt;- as.data.frame(readLines(&#39;./final/en_US/en_US.news.txt&#39;))
+names(news) &lt;- c(&#39;Text&#39;)
+news &lt;- news %&gt;% mutate(length = nchar(news$Text)) %&gt;%
+  mutate(words = sapply(strsplit(news$Text, &#39; &#39;), length))
+
+twitter &lt;- as.data.frame(readLines(&#39;./final/en_US/en_US.twitter.txt&#39;))
+names(twitter) &lt;- c(&#39;Text&#39;)
+twitter &lt;- twitter %&gt;% mutate(length = nchar(twitter$Text)) %&gt;%
+  mutate(words = sapply(strsplit(twitter$Text, &#39; &#39;), length))
+
+Names &lt;- c(&#39;Word counts&#39;, &#39;Line counts&#39;, &#39;File size, MB&#39;)
+Blog &lt;- c(sum(blogs$words),
+          length(readLines(&#39;./final/en_US/en_US.blogs.txt&#39;)),
+          round(file.size(paste0(getwd(), &#39;/final/en_US/en_US.blogs.txt&#39;)) / 1024^2, digits = 2))
+News &lt;- c(sum(news$words),
+          length(readLines(&#39;./final/en_US/en_US.news.txt&#39;)),
+          round(file.size(paste0(getwd(), &#39;/final/en_US/en_US.news.txt&#39;)) / 1024^2, digits = 2))
+Twitter &lt;- c(sum(twitter$words),
+             length(readLines(&#39;./final/en_US/en_US.twitter.txt&#39;)),
+             round(file.size(paste0(getwd(), &#39;/final/en_US/en_US.twitter.txt&#39;)) / 1024^2, digits = 2))
+t1 &lt;- data.frame(Blog, News, Twitter)
+row.names(t1) &lt;- c(&#39;Word counts&#39;, &#39;Line counts&#39;, &#39;File size, MB&#39;)
+t1</code></pre>
+<pre><code>##                      Blog       News     Twitter
+## Word counts   37334131.00 2643969.00 30373543.00
+## Line counts     899288.00   77259.00  2360148.00
+## File size, MB      200.42     196.28      159.36</code></pre>
+<p>To decide what part of this huge pack of data to use, I want to look at the distribution of lengths for each of three files. According to this, I will load while files onto memory and filter data afterwards. Next step is to look at these sets’ percentiles to decide, how much data will be used for building model.</p>
+<pre class="r"><code>quantile(blogs$length, c(.01, .05, .1, .2, .3, .4, .5, .6, .7, .8, .9, .95, .99, .9999))</code></pre>
 <pre><code>##       1%       5%      10%      20%      30%      40%      50%      60% 
 ##    8.000   16.000   23.000   38.000   60.000   99.000  157.000  219.000 
 ##      70%      80%      90%      95%      99%   99.99% 
 ##  288.000  382.000  538.000  699.000 1120.000 3434.214</code></pre>
-<pre class="r"><code>news &lt;- as.data.frame(readLines(&#39;./final/en_US/en_US.news.txt&#39;))
-names(news) &lt;- c(&#39;Text&#39;)
-news &lt;- news %&gt;% mutate(length = nchar(news$Text))
-quantile(news$length, c(.01, .05, .1, .2, .3, .4, .5, .6, .7, .8, .9, .95, .99, .9999))</code></pre>
+<pre class="r"><code>quantile(news$length, c(.01, .05, .1, .2, .3, .4, .5, .6, .7, .8, .9, .95, .99, .9999))</code></pre>
 <pre><code>##       1%       5%      10%      20%      30%      40%      50%      60% 
 ##   13.000   27.000   49.000   93.000  127.000  157.000  186.000  216.000 
 ##      70%      80%      90%      95%      99%   99.99% 
 ##  250.000  293.000  363.000  432.000  631.000 1594.371</code></pre>
-<pre class="r"><code>twitter &lt;- as.data.frame(readLines(&#39;./final/en_US/en_US.twitter.txt&#39;))
-names(twitter) &lt;- c(&#39;Text&#39;)
-twitter &lt;- twitter %&gt;% mutate(length = nchar(twitter$Text))
-quantile(twitter$length, c(.01, .05, .1, .2, .3, .4, .5, .6, .7, .8, .9, .95, .99, .9999))</code></pre>
+<pre class="r"><code>quantile(twitter$length, c(.01, .05, .1, .2, .3, .4, .5, .6, .7, .8, .9, .95, .99, .9999))</code></pre>
 <pre><code>##     1%     5%    10%    20%    30%    40%    50%    60%    70%    80%    90% 
 ##     10     16     22     32     42     53     64     77     92    108    124 
 ##    95%    99% 99.99% 
@@ -410,7 +434,7 @@ quantile(twitter$length, c(.01, .05, .1, .2, .3, .4, .5, .6, .7, .8, .9, .95, .9
 </div>
 <div id="task-1---getting-and-cleaning-the-data" class="section level1">
 <h1>Task 1 - Getting and cleaning the data</h1>
-<p>Well, I see that the most informative from all these files is the one containing blogs. Twitter’s 99%-percentile is less than others’ 30-50%. I will not use twitter for teaching my model at all. How much of each source should be left? Let it be the something close to 99.99%-percentiles (3000, 1500 and 142 symbols respectively). It will contain about 1200 lines of text:</p>
+<p>Well, I see that the most informative from all these files is the one containing blogs. Twitter’s 99%-percentile is less than others’ 30-50%. I will not use twitter for teaching my model at all. How much of each source should be left? Let it be the something close to 99.99%-percentiles (3000, 1500 and 146 symbols respectively). It will contain about 1200 lines of text:</p>
 <pre class="r"><code>blogs &lt;- blogs %&gt;% filter(length &gt; 3000)
 news &lt;- news %&gt;% filter(length &gt; 1500)
 #too much of twits make my PC not able to count vectors, so I have to cut it a little
