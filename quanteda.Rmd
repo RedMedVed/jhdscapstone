@@ -1,0 +1,148 @@
+---
+title: "Seed influence"
+author: "Suharkov MP"
+date: "24 12 2020"
+output: 
+  html_document:
+    toc: true
+    toc_depth: 2
+    toc_float: true
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r libraries, warning=F, message=F, echo=F}
+# Load all required packages (list was taken from https://www.mzes.uni-mannheim.de/socialsciencedatalab/article/advancing-text-mining/)
+library(tidyverse)        # Also loads dplyr, ggplot2, and haven
+library(quanteda)         # For NLP
+#library(readtext)        # To read .txt files
+library(stringi)          # corpus analysis
+library(stm)              # For structural topic models
+library(stminsights)      # For visual exploration of STM
+library(wordcloud)        # To generate wordclouds
+library(gsl)              # Required for the topicmodels package
+library(topicmodels)      # For topicmodels
+library(caret)            # For machine learning
+library(tm)               #text analisys
+```
+
+# Overview
+
+This paper is my attempt to find if there any influence of chosen seed at the word distribution. As before, the en_US locale is used. 
+
+Load the whole data:
+```{r data, warning=F, message=F, echo=F}
+blogs <- corpus(readLines('./final/en_US/en_US.blogs.txt'))
+news <- corpus(readLines('./final/en_US/en_US.news.txt'))
+twitter <- corpus(readLines('./final/en_US/en_US.twitter.txt'))
+```
+
+Now seeds, I used a method of typing random numbers by keyboard, so they are true-random, not pseudo.
+## Seed 362
+```{r seed362, warning=F, message=F}
+set.seed(362)
+blogs362 <- corpus_sample(blogs, size = 5000)
+news362 <- corpus_sample(news, size = 5000)
+twitter362 <- corpus_sample(twitter, size = 5000)
+docnames(blogs362) <- c(1:5000)
+docnames(news362) <- c(5001:10000)
+docnames(twitter362) <- c(10001:15000)
+corp362 <- blogs362 + news362 + twitter362
+tokens362 <- tokens(corp362)
+#remove numbers and punctuation
+tokens362 <- tokens(tokens362, remove_punct = T, remove_numbers = T)
+#remove stopwords
+tokens362 <- tokens_select(tokens362, pattern = stopwords('en'), selection = 'remove')
+#remove messy symbols
+```
+```
+## Seed 24734
+```{r seed24734, warning=F, message=F}
+set.seed(24734)
+blogs24734 <- corpus_sample(blogs, size = 5000)
+news24734 <- corpus_sample(news, size = 5000)
+twitter24734 <- corpus_sample(twitter, size = 5000)
+docnames(blogs24734) <- c(1:5000)
+docnames(news24734) <- c(5001:10000)
+docnames(twitter24734) <- c(10001:15000)
+corp24734 <- blogs24734 + news24734 + twitter24734
+```
+## Seed 346
+```{r seed346, warning=F, message=F}
+set.seed(346)
+blogs346 <- corpus_sample(blogs, size = 5000)
+news346 <- corpus_sample(news, size = 5000)
+twitter346 <- corpus_sample(twitter, size = 5000)
+docnames(blogs346) <- c(1:5000)
+docnames(news346) <- c(5001:10000)
+docnames(twitter346) <- c(10001:15000)
+corp346 <- blogs346 + news346 + twitter346
+```
+## Seed 12354
+```{r seed12354, warning=F, message=F}
+set.seed(12354)
+blogs12354 <- corpus_sample(blogs, size = 5000)
+news12354 <- corpus_sample(news, size = 5000)
+twitter12354 <- corpus_sample(twitter, size = 5000)
+docnames(blogs12354) <- c(1:5000)
+docnames(news12354) <- c(5001:10000)
+docnames(twitter12354) <- c(10001:15000)
+corp12354 <- blogs12354 + news12354 + twitter12354
+```
+## Seed 47
+```{r seed47, warning=F, message=F}
+set.seed(47)
+blogs47 <- corpus_sample(blogs, size = 5000)
+news47 <- corpus_sample(news, size = 5000)
+twitter47 <- corpus_sample(twitter, size = 5000)
+docnames(blogs47) <- c(1:5000)
+docnames(news47) <- c(5001:10000)
+docnames(twitter47) <- c(10001:15000)
+corp47 <- blogs47 + news47 + twitter47
+```
+## Seed 4754
+```{r seed4754, warning=F, message=F}
+set.seed(4754)
+blogs4754 <- corpus_sample(blogs, size = 5000)
+news4754 <- corpus_sample(news, size = 5000)
+twitter4754 <- corpus_sample(twitter, size = 5000)
+docnames(blogs4754) <- c(1:5000)
+docnames(news4754) <- c(5001:10000)
+docnames(twitter4754) <- c(10001:15000)
+corp4754 <- blogs4754 + news4754 + twitter4754
+```
+## Seed 234
+```{r seed234, warning=F, message=F}
+set.seed(234)
+blogs234 <- corpus_sample(blogs, size = 5000)
+news234 <- corpus_sample(news, size = 5000)
+twitter234 <- corpus_sample(twitter, size = 5000)
+docnames(blogs234) <- c(1:5000)
+docnames(news234) <- c(5001:10000)
+docnames(twitter234) <- c(10001:15000)
+corp234 <- blogs234 + news234 + twitter234
+```
+## Seed 67
+```{r seed67, warning=F, message=F}
+set.seed(67)
+blogs67 <- corpus_sample(blogs, size = 5000)
+news67 <- corpus_sample(news, size = 5000)
+twitter67 <- corpus_sample(twitter, size = 5000)
+docnames(blogs67) <- c(1:5000)
+docnames(news67) <- c(5001:10000)
+docnames(twitter67) <- c(10001:15000)
+corp67 <- blogs67 + news67 + twitter67
+```
+## Seed 780
+```{r seed780, warning=F, message=F}
+set.seed(780)
+blogs780 <- corpus_sample(blogs, size = 5000)
+news780 <- corpus_sample(news, size = 5000)
+twitter780 <- corpus_sample(twitter, size = 5000)
+docnames(blogs780) <- c(1:5000)
+docnames(news780) <- c(5001:10000)
+docnames(twitter780) <- c(10001:15000)
+corp780 <- blogs780 + news780 + twitter780
+```
