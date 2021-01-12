@@ -1,7 +1,7 @@
 ---
 title: "Seed influence"
 author: "Suharkov MP"
-date: "24 12 2020"
+date: "12 01 2021"
 output: 
   html_document:
     toc: true
@@ -13,19 +13,11 @@ output:
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-```{r libraries, warning=F, message=F, echo=F}
-# Load all required packages (list was taken from https://www.mzes.uni-mannheim.de/socialsciencedatalab/article/advancing-text-mining/)
+```{r libraries, warning=F, message=F}
+# Load all required packages
 library(tidyverse)        # Also loads dplyr, ggplot2, and haven
 library(quanteda)         # For NLP
-#library(readtext)        # To read .txt files
-library(stringi)          # corpus analysis
-library(stm)              # For structural topic models
-library(stminsights)      # For visual exploration of STM
 library(wordcloud)        # To generate wordclouds
-library(gsl)              # Required for the topicmodels package
-library(topicmodels)      # For topicmodels
-library(caret)            # For machine learning
-library(tm)               #text analisys
 ```
 
 # Overview
@@ -33,15 +25,17 @@ library(tm)               #text analisys
 This paper is my attempt to find if there any influence of chosen seed at the word distribution. As before, the en_US locale is used. 
 
 Load the whole data:
-```{r data, warning=F, message=F, echo=F}
-blogs <- corpus(readLines('./final/en_US/en_US.blogs.txt'))
-news <- corpus(readLines('./final/en_US/en_US.news.txt'))
-twitter <- corpus(readLines('./final/en_US/en_US.twitter.txt'))
+```{r data, warning=F, message=F}
+blogs <- corpus(readLines('./final/en_US/en_US.blogs.txt', encoding="UTF-8"))
+news <- corpus(readLines('./final/en_US/en_US.news.txt', encoding="UTF-8"))
+twitter <- corpus(readLines('./final/en_US/en_US.twitter.txt', encoding="UTF-8"))
 ```
 
+
 Now seeds, I used a method of typing random numbers by keyboard, so they are true-random, not pseudo.
-## Seed 362
-```{r seed362, warning=F, message=F}
+
+## Function
+```{r function, warning=F, message=F}
 construct_seed <- function(seed) {
   set.seed(seed = seed)
   blogs <- corpus_sample(blogs, size = 5000)
@@ -56,24 +50,46 @@ construct_seed <- function(seed) {
   tokens <- tokens(tokens, remove_punct = T, remove_numbers = T)
   #remove stopwords
   tokens <- tokens_select(tokens, pattern = stopwords('en'), selection = 'remove')
-  #remove messy symbols
-  token <<- tokens
+  
+  #Make matrix
+  matrx <- dfm(tokens)
+  matrx <- as.matrix(matrx) 
+  words <- sort(colSums(matrx), decreasing = TRUE) 
+  df <- data.frame(word = names(words), freq = words)
+  wc <- wordcloud(words = df$word, freq = df$freq, 
+          min.freq = 1, 
+          max.words = 300, 
+          random.order = FALSE, 
+          rot.per = 0.35,
+          colors = brewer.pal(8, 'Dark2'))
+  arg_name <- deparse(substitute(seed)) # Get argument name
+  var_name <- paste("wc", arg_name, sep="_") # Construct the name
+  assign(var_name, wc, env=.GlobalEnv) # Assign values to variable
+  # variable will be created in .GlobalEnv
 }
-#construct_seed(seed = 362)
+
 ```
+
+I will compare the output of my function with different seeds using visual method (word clouds).
+
+## Seed 362
+```{r seed362, warning=F, message=F}
+construct_seed(seed = 362)
 ```
+
 ## Seed 24734
+```{r seed24734, warning=F, message=F}
+construct_seed(seed = 24734)
+```
 
 ## Seed 346
+```{r seed346, warning=F, message=F}
+construct_seed(seed = 346)
+```
 
 ## Seed 12354
+```{r seed12354, warning=F, message=F}
+construct_seed(seed = 12354)
+```
 
-## Seed 47
-
-## Seed 4754
-
-## Seed 234
-
-## Seed 67
-
-## Seed 780
+Looks like there's no significant difference, so any random seed can be used in constructing the final model.
