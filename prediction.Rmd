@@ -1,0 +1,170 @@
+---
+title: "Prediction"
+author: "Suharkov MP"
+date: "14 01 2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r libraries, warning=F, message=F, echo=F}
+library(dplyr)    # dataframe formatting
+library(stringr)  # string formatting
+library(readr)    # txt to string
+library(tm)       # text analisys
+library(RWeka)    # searching for n-grams
+library(quanteda) # For corpus construction
+library(reshape2) # colsplit function
+#library(ggplot2)  # visualization
+
+#for cloud
+library(wordcloud)
+library(wordcloud2)
+library(RColorBrewer)
+```
+
+# Overview
+
+In my work I use the en_US locale of the dataset. 
+
+# Load and preprocess data
+
+```{r data, warning=F, message=F}
+#all data
+blogs <- corpus(readLines('./final/en_US/en_US.blogs.txt', encoding="UTF-8"))
+news <- corpus(readLines('./final/en_US/en_US.news.txt', encoding="UTF-8"))
+twitter <- corpus(readLines('./final/en_US/en_US.twitter.txt', encoding="UTF-8"))
+
+#take a sample
+set.seed(14012021)
+blogs <- corpus_sample(blogs, size = 1000)
+news <- corpus_sample(news, size = 1000)
+twitter <- corpus_sample(twitter, size = 1000)
+
+#fix rownames to merge data
+docnames(blogs) <- c(1:1000)
+docnames(news) <- c(1001:2000)
+docnames(twitter) <- c(2001:3000)
+
+#merge and clean environment after
+corp <- blogs + news + twitter
+```
+
+## Tokenization 
+
+All kinds of numbers, punctuation signs, parenthesis and specific symbols, like **£** or **$** are removed.
+```{r corpus, warning=F, message=F}
+corpus <- Corpus(VectorSource(corp)) %>% 
+  tm_map(tolower) %>%
+  tm_map(removeNumbers) %>%
+  tm_map(removePunctuation) %>%
+  tm_map(stripWhitespace)
+```
+
+## Profanity filtering
+
+I've used the ready list of profanity words, it can be downloaded here - [School of Computer Science at Carnegi Mellon University](https://www.cs.cmu.edu/~biglou/resources/bad-words.txt)
+```{r profanity, warning=F, message=F}
+download.file('https://www.cs.cmu.edu/~biglou/resources/bad-words.txt', 'profanity.txt')
+corpus <- tm_map(corpus, removeWords, readLines('profanity.txt'))
+```
+Now I purge all symbols, which can be interpreted as words but not are words (**'s** as an example).
+```{r purge, warning=F, message=F}
+toSpace <- content_transformer(function(x, pattern) gsub(pattern, ' ', x))
+toNot <- content_transformer(function(x, pattern) gsub(pattern, ' not', x))
+corpus <- corpus %>%
+  tm_map(toSpace, "[“”–…—]|(’m|’s|’d|’[vr]e|’ll)") %>%
+  tm_map(toSpace, "(f|ht)tp(s?)://(.*)[.][a-z]+") %>% #delete web-links %>%
+  tm_map(toSpace, "@[^\\s]+") %>% #delete nicks
+  tm_map(toSpace, "#[^\\s]+") %>% #delete hashtags
+  tm_map(toNot, "n’t") %>%
+  tm_map(stripWhitespace)
+
+#make matrix and clean environment
+dtm <- DocumentTermMatrix(corpus)
+inspect(dtm)
+```
+
+## Visualizing
+
+### Cloud
+
+```{r cloud, warning=F, message=F}
+matrix <- as.matrix(dtm) 
+words <- sort(colSums(matrix), decreasing = TRUE) 
+df <- data.frame(word = names(words), freq = words)
+wordcloud(words = df$word, freq = df$freq, 
+          min.freq = 1, 
+          max.words = 300, 
+          random.order = FALSE, 
+          rot.per = 0.35,
+          colors = brewer.pal(8, 'Dark2'))
+```
+
+### Table
+```{r freq, warning=F, message=F}
+saveRDS(df, file = 'frequency.Rda')
+#displaying most frequent sampled words
+freqList <- setDT(df)
+head(df, 10)
+```
+### Leave the environment clean
+
+```{r clean, warning=F, message=F}
+rm(list = setdiff(ls(), 'corpus'))
+```
+
+
+# Constructing N-Grams
+
+I will construct and serialize data up to sixgrams for better prediction quality.
+
+```{r function, warning=F, message=F}
+#for making N-grams corpus was transformed
+corpus <- VCorpus(VectorSource(corpus))
+
+#tokenizing unigrams function
+tokenizer <- function(m) {
+    function(x) {NGramTokenizer(x, Weka_control(min = m, max = m))}
+}
+
+#creating N-grams' files function
+makefile <- function(n) {
+    if(n == 1) 
+    {
+        nGramTdm <- TermDocumentMatrix(corpus)
+    } 
+    else {
+        nGramTdm <- TermDocumentMatrix(corpus, control = list(tokenize = tokenizer(n)))
+    }
+    
+    nGramMatrix <- as.matrix(nGramTdm)
+    nGramWords <- sort(rowSums(nGramMatrix), decreasing = TRUE) 
+    nGramDF <- data.frame(string = names(nGramWords), frequency = nGramWords)
+
+    columns <- c('one', 'two', 'three', 'four', 'five', 'six')[1:n]
+    
+    if(n > 1) {
+        nGramDF <- transform(nGramDF, string = colsplit(string, ' ', names = columns ))
+    }
+    
+    rownames(nGramDF) <- NULL
+    nGramDF
+    
+    argName <- deparse(substitute(n)) # Get N
+    fileName <- paste('data/', argName, 'gram.Rda', sep='') # Construct the filename
+    saveRDS(nGramDF, file = fileName)
+}
+```
+
+
+```{r makefile, warning=F, message=F}
+makefile(1)
+makefile(2)
+makefile(3)
+makefile(4)
+makefile(5)
+makefile(6)
+```
