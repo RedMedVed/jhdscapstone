@@ -12,6 +12,9 @@ sixgram <- readRDS('data/6gram.Rda')
 #defining the function
 wordPredict <- function(userText) {
   
+  #check user input, if it contains only numbers
+  #if(grepl('[A-Za-z]', userText) == 0) stop('Input should contain at least one letter!')
+  
   if(nchar(userText) > 0) {
     
     #transform text input as the corpus before

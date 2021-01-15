@@ -1,0 +1,12 @@
+name: Prediction
+title: Prediction
+username:
+account: suharkov
+server: shinyapps.io
+hostUrl: https://api.shinyapps.io/v1
+appId: 3476220
+bundleId: 4099207
+url: https://suharkov.shinyapps.io/Prediction/
+when: 1610700325.13754
+asMultiple: FALSE
+asStatic: FALSE
