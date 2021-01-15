@@ -87,9 +87,10 @@ wordPredict <- function(userText) {
       word2 <- inputObject[2]
       predictedWords <- useTrigram(c(word1, word2))
       
+      #if trigram fails use bigram function
       if(length(predictedWords) == 0)
       {
-        # if trigram fails use bigram function
+        
         predictedWords <- useBigram(word2)
       }
     }
@@ -102,13 +103,13 @@ wordPredict <- function(userText) {
       word3 <- inputObject[wordCount]
       predictedWords <- useFourgram(c(word1, word2, word3)) 
       
-      # if fourgram fails use trigram function
+      #if fourgram fails use trigram function
       if(length(predictedWords) == 0)
       {
         predictedWords <- useTrigram(c(word2, word3))
       }
       
-      # if trigram fails use bigram function
+      #if trigram fails use bigram function
       if(length(predictedWords) == 0)
       {
         predictedWords <- useBigram(word3)

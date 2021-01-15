@@ -35,7 +35,7 @@ shinyUI(fluidPage( tags$style(type="text/css",
                               conversion to lowercase, removing punctuation, links, 
                               whitespaces, numbers and all kinds of special characters (non-UTF-8).
                               
-                              <h5> The data set is reduced to 9000 items (according to my PC abilities) 
+                              <h5> The data set is reduced to 3000 items (according to my PC abilities) 
                               of the total and combined into a single file for faster processing.<h5>
                               
                               <left>
